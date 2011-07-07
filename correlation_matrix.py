@@ -66,6 +66,22 @@ def get_consensus(strains):
 
     return consensus
 
+def generate_binary_matrix(data, consensus):
+    """
+    Generates a binary array x_i(s), where:
+        * Each row corresponds to a particular strain
+        * Each column corresponds to a particular site
+        * The element is 1 if that strain at that site is indentical to the
+           consensus sequence at that site
+
+    """
+
+    x = np.zeros( (len(data), len(consensus)), dtype=bool)
+    for s, strain in enumerate(data):
+        for i, site in enumerate(strain):
+            x[s,i] = (site == consensus[i])
+
+    return x
 
             
            
