@@ -37,14 +37,52 @@ def filter_strains(data):
     # Must not forget the return statement
     return good_data
 
+def get_consensus(strains):
+    """ Get the consensus sequence of aligned strains
 
+    This assumes that all strains are the same length, and defines consensus
+    sequence as the single most common residue at each position. If two or more
+    residues are equally common, it chooses arbitrarily (but not necessarily
+    randomly) 
+    
+    """
+
+    # Set up a list of counters equal to the length of the sequence
+    residue_counters = [Counter() for residue in strains[0]]
+
+    for strain in strains:
+        # Loop over each strain
+        for index, residue in enumerate(strain):
+            # Loop over each residue and count how many times that residue has
+            # appeared at that position
+            residue_counters[index][residue] += 1
+
+    # Use a list comprehension to get the most common residue at each position
+    consensus_list = [counter.most_common()[0][0] 
+                      for counter in residue_counters]
+
+    # Efficiently convert a list into a string
+    consensus = ''.join(consensus_list)
+
+    return consensus
+
+
+            
+           
+          
+
+
+gag_seq_file = '../data/HIV1_CON_2004_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
 
+# We don't actually need the names of the sequences, and a list is more
+# convenient for what we're doing than a dictionary
 gag_data = [gag_data[name] for name in gag_data_full]
 
 # Remove strains that aren't similar enough to each other
 gag_data = filter_strains(gag_data)
 
+# Find the most common residue at each nucleotide location
 consensus_sequence = get_consensus(gag_data)
 
 x = generate_binary_matrix(gag_data, consensus_sequence)
