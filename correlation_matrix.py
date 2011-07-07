@@ -61,14 +61,17 @@ def get_consensus(strains):
     consensus_list = [counter.most_common()[0][0] 
                       for counter in residue_counters]
 
+    # If there's no variation at a residue, then it will mess with the corrcoef
+    # function later. Accumulate these in a list to return as well
+    novars = []
     for i, counter in enumerate(residue_counters):
         if len(counter) == 1:
-            print "No variation at residue: ", i
+            novars.append(i)
 
     # Efficiently convert a list into a string
     consensus = ''.join(consensus_list)
 
-    return consensus
+    return consensus, novars
 
 def generate_binary_matrix(data, consensus):
     """
@@ -113,7 +116,8 @@ gag_data = [gag_data_full[name] for name in gag_data_full]
 gag_data = filter_strains(gag_data)
 
 # Find the most common residue at each nucleotide location
-consensus_sequence = get_consensus(gag_data)
+consensus_sequence, novars = get_consensus(gag_data)
+
 
 x = generate_binary_matrix(gag_data, consensus_sequence)
 # x is boolean 2D array, where 
@@ -121,6 +125,14 @@ x = generate_binary_matrix(gag_data, consensus_sequence)
 # each row is a strain of HIV,
 # and 1 means that it is the same as the consensus sequence
 
+
+# Remove non-variable sites from consideration
+x = np.array([x[i,:] for i in range(len(consensus_sequence))
+              if i not in novars])
+# Update the consensus sequence to remove non-variable sites
+consensus_sequence = ''.join([r for i, r in enumerate(consensus_sequence) 
+                              if i not in novars])
+print np.shape(x)
 x = remove_phylogeny(x)
 
 corr_matrix = np.corrcoef(x)
