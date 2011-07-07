@@ -30,7 +30,7 @@ def filter_strains(data):
     # it, which leads to odd behavior.
     good_data = []
 
-    for sequence in data_copy:
+    for sequence in data:
         if len(sequence) == most_common:
             good_data.append(sequence)
 
@@ -98,12 +98,12 @@ def determine_sectors(correlation_matrix):
     """
     pass
 
-gag_seq_file = '../data/HIV1_CON_2004_GAG_PRO.fasta'
+gag_seq_file = '../data/HIV1_FLT_2009_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
 
 # We don't actually need the names of the sequences, and a list is more
 # convenient for what we're doing than a dictionary
-gag_data = [gag_data[name] for name in gag_data_full]
+gag_data = [gag_data_full[name] for name in gag_data_full]
 
 # Remove strains that aren't similar enough to each other
 gag_data = filter_strains(gag_data)
