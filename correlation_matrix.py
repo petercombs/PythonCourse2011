@@ -89,6 +89,15 @@ def clean_matrix(correlation_matrix):
 def remove_phylogeny(binary_matrix):
     pass
 
+def determine_sectors(correlation_matrix):
+    """ 
+    Determines the sectors of the protein
+
+    Returns a list of lists, where each list contains the residue numbers
+    (zero-indexed) of the components of each sector
+    """
+    pass
+
 gag_seq_file = '../data/HIV1_CON_2004_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
 
@@ -113,3 +122,6 @@ x = remove_phylogeny(x)
 corr_matrix = np.corrcoef(x)
 
 corr_matrix = clean_matrix(corr_matrix)
+
+sectors = determine_sectors(corr_matrix)
+
