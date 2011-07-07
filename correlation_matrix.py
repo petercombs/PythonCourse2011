@@ -86,6 +86,8 @@ def generate_binary_matrix(data, consensus):
 def clean_matrix(correlation_matrix):
     pass
 
+def remove_phylogeny(binary_matrix):
+    pass
 
 gag_seq_file = '../data/HIV1_CON_2004_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
@@ -105,6 +107,8 @@ x = generate_binary_matrix(gag_data, consensus_sequence)
 # each column is a residue,
 # each row is a strain of HIV,
 # and 1 means that it is the same as the consensus sequence
+
+x = remove_phylogeny(x)
 
 corr_matrix = np.corrcoef(x)
 
