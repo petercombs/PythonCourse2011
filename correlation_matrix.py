@@ -83,9 +83,8 @@ def generate_binary_matrix(data, consensus):
 
     return x
 
-            
-           
-          
+def clean_matrix(correlation_matrix):
+    pass
 
 
 gag_seq_file = '../data/HIV1_CON_2004_GAG_PRO.fasta'
@@ -109,3 +108,4 @@ x = generate_binary_matrix(gag_data, consensus_sequence)
 
 corr_matrix = np.corrcoef(x)
 
+corr_matrix = clean_matrix(corr_matrix)
