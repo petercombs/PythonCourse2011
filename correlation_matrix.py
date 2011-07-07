@@ -61,6 +61,10 @@ def get_consensus(strains):
     consensus_list = [counter.most_common()[0][0] 
                       for counter in residue_counters]
 
+    for i, counter in enumerate(residue_counters):
+        if len(counter) == 1:
+            print "No variation at residue: ", i
+
     # Efficiently convert a list into a string
     consensus = ''.join(consensus_list)
 
