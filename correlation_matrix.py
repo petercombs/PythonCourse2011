@@ -76,17 +76,18 @@ def get_consensus(strains):
 def generate_binary_matrix(data, consensus):
     """
     Generates a binary array x_i(s), where:
-        * Each row corresponds to a particular strain
-        * Each column corresponds to a particular site
+        * Each column corresponds to a particular strain
+        * Each row corresponds to a particular site
         * The element is 1 if that strain at that site is indentical to the
            consensus sequence at that site
 
     """
 
-    x = np.zeros( (len(data), len(consensus)), dtype=bool)
+    x = np.zeros( (len(consensus), len(data)), dtype=bool)
+    print np.shape(x)
     for s, strain in enumerate(data):
         for i, site in enumerate(strain):
-            x[s,i] = (site == consensus[i])
+            x[i,s] = (site == consensus[i])
 
     return x
 
@@ -121,8 +122,8 @@ consensus_sequence, novars = get_consensus(gag_data)
 
 x = generate_binary_matrix(gag_data, consensus_sequence)
 # x is boolean 2D array, where 
-# each column is a residue,
-# each row is a strain of HIV,
+# each row is a residue,
+# each column is a strain of HIV,
 # and 1 means that it is the same as the consensus sequence
 
 
