@@ -84,7 +84,6 @@ def generate_binary_matrix(data, consensus):
     """
 
     x = np.zeros( (len(consensus), len(data)), dtype=bool)
-    print np.shape(x)
     for s, strain in enumerate(data):
         for i, site in enumerate(strain):
             x[i,s] = (site == consensus[i])
@@ -93,6 +92,34 @@ def generate_binary_matrix(data, consensus):
 
 def clean_matrix(correlation_matrix):
     pass
+def find_cutoff(alignment):
+    eigs = []
+
+    # We don't want our permutations to mess with the original alignment, which
+    # it would do if we don't make a copy of it.  Remember the interlude from
+    # day 2?
+    alignment = alignment.copy()
+
+    nresidues, nstrains = np.shape(alignment)
+    for i in range(1000):
+        # Shuffle the residues at each position
+        for r in range(nresidues):
+            alignment[r, :] = np.random.permutation(alignment[r, :])
+
+        # Calculate the correlation coefficient
+        corr = np.corrcoef(alignment)
+        
+        # Add the eigenvalues to the running list of eigenvalues
+        eigs.extend(np.linalg.eigvalsh(corr))
+
+        # Poor-man's Progress bar
+        if i%10 == 9: 
+            print '.',
+        if i%100 == 99: 
+            print ''
+    print
+    return eigs
+
 
 def remove_phylogeny(binary_matrix):
     pass
@@ -133,10 +160,13 @@ x = np.array([x[i,:] for i in range(len(consensus_sequence))
 # Update the consensus sequence to remove non-variable sites
 consensus_sequence = ''.join([r for i, r in enumerate(consensus_sequence) 
                               if i not in novars])
-print np.shape(x)
 x = remove_phylogeny(x)
 
 corr_matrix = np.corrcoef(x)
+
+#eigs = find_cutoff(x)
+#lambda_cutoff = max(eigs)
+lambda_cutoff = 3.45
 
 corr_matrix = clean_matrix(corr_matrix)
 
