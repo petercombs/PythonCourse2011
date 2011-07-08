@@ -124,11 +124,11 @@ def clean_matrix(correlation_matrix, lambda_cutoff):
     Every eigenvector with an eigenvalue greater than the cutoff is used to
     generate a new correlation matrix
     """
-    lambdas, ks = np.linalg.eigh(correlation_matrix)
-    clean = zeros_like(clean_matrix)
-    for k, eigval in enumerate(lambdas):
-        if eigval > lambda_cutoff:
-            clean += eigval * outer(ks[:,k], ks[:,k])
+    eigvals, vecs = np.linalg.eigh(correlation_matrix)
+    clean = np.zeros_like(correlation_matrix)
+    for k, eigval in enumerate(eigvals):
+        if eigval > lambda_cutoff and eigval != max(eigvals):
+            clean += eigval * np.outer(vecs[:,k], vecs[:,k])
     return clean
 
 def remove_phylogeny(binary_matrix):
@@ -178,7 +178,7 @@ corr_matrix = np.corrcoef(x)
 #lambda_cutoff = max(eigs)
 lambda_cutoff = 3.45
 
-corr_matrix = clean_matrix(corr_matrix)
+corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
 
 sectors = determine_sectors(corr_matrix)
 
