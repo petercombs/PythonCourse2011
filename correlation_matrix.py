@@ -90,8 +90,6 @@ def generate_binary_matrix(data, consensus):
 
     return x
 
-def clean_matrix(correlation_matrix):
-    pass
 def find_cutoff(alignment):
     eigs = []
 
@@ -120,9 +118,21 @@ def find_cutoff(alignment):
     print
     return eigs
 
+def clean_matrix(correlation_matrix, lambda_cutoff):
+    """ Uses RMT to clean the correlation matrix
+
+    Every eigenvector with an eigenvalue greater than the cutoff is used to
+    generate a new correlation matrix
+    """
+    lambdas, ks = np.linalg.eigh(correlation_matrix)
+    clean = zeros_like(clean_matrix)
+    for k, eigval in enumerate(lambdas):
+        if eigval > lambda_cutoff:
+            clean += eigval * outer(ks[:,k], ks[:,k])
+    return clean
 
 def remove_phylogeny(binary_matrix):
-    pass
+    return binary_matrix
 
 def determine_sectors(correlation_matrix):
     """ 
