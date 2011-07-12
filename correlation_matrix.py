@@ -169,12 +169,13 @@ def determine_sectors(correlation_matrix, lambda_cutoff):
     print best
 
 
-gag_seq_file = '../data/HIV1_FLT_2009_GAG_PRO.fasta'
+gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
 
 # We don't actually need the names of the sequences, and a list is more
 # convenient for what we're doing than a dictionary
-gag_data = [gag_data_full[name] for name in gag_data_full]
+gag_data = [gag_data_full[name] for name in gag_data_full 
+            if 'B' in name.split('.')[0]]
 
 # Remove strains that aren't similar enough to each other
 gag_data = filter_strains(gag_data)
@@ -192,12 +193,6 @@ x = generate_binary_matrix(gag_data, consensus_sequence)
 # and 1 means that it is the same as the consensus sequence
 
 
-# Remove non-variable sites from consideration
-x = np.array([x[i,:] for i in range(len(consensus_sequence))
-              if i not in novars])
-# Update the consensus sequence to remove non-variable sites
-consensus_sequence = ''.join([r for i, r in enumerate(consensus_sequence) 
-                              if i not in novars])
 x = remove_phylogeny(x)
 
 corr_matrix = np.corrcoef(x)
@@ -208,5 +203,5 @@ lambda_cutoff = 3.45
 
 corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
 
-sectors = determine_sectors(corr_matrix)
+sectors = determine_sectors(corr_matrix, lambda_cutoff)
 
