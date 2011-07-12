@@ -73,6 +73,16 @@ def get_consensus(strains):
 
     return consensus, novars
 
+def remove_nonvarying(data, consensus, novar):
+    data = [strip_nonvarying(seq, novar) for seq in data]
+    consensus = strip_nonvarying(consensus, novar)
+
+    return data, consensus
+
+def strip_nonvarying(string, novar):
+    return "".join([char for idx, char in string if idx not in novar])
+
+
 def generate_binary_matrix(data, consensus):
     """
     Generates a binary array x_i(s), where:
@@ -156,6 +166,8 @@ gag_data = filter_strains(gag_data)
 # Find the most common residue at each nucleotide location
 consensus_sequence, novars = get_consensus(gag_data)
 
+gag_data, consensus_sequence = remove_nonvarying(gag_data, consensus_sequence,
+                                                 novars)
 
 x = generate_binary_matrix(gag_data, consensus_sequence)
 # x is boolean 2D array, where 
