@@ -144,14 +144,30 @@ def clean_matrix(correlation_matrix, lambda_cutoff):
 def remove_phylogeny(binary_matrix):
     return binary_matrix
 
-def determine_sectors(correlation_matrix):
+def determine_sectors(correlation_matrix, lambda_cutoff):
     """ 
     Determines the sectors of the protein
 
     Returns a list of lists, where each list contains the residue numbers
     (zero-indexed) of the components of each sector
     """
-    pass
+    eigvals, vecs = np.linalg.eigh(correlation_matrix)
+
+    n_residues = n_vectors = len(eigvals)
+
+    loadings = [Counter() for i in range(n_residues)]
+
+    for r in range(n_residues):
+        for k in range(n_vectors):
+            loading = np.dot(correlation_matrix[:,r], vecs[:,k])
+            if eigvals[k] > lambda_cutoff and loading > .1:
+                loadings[r][k] = loading
+
+    print loadings
+    best = [(l.most_common()[0][0] if len(l) else None)
+            for l in loadings]
+    print best
+
 
 gag_seq_file = '../data/HIV1_FLT_2009_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
