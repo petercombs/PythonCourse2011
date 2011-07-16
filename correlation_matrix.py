@@ -142,7 +142,11 @@ def find_cutoff(alignment):
     alignment = alignment.copy()
 
     nresidues, nstrains = np.shape(alignment)
-    for i in range(1000):
+    max_corr = 0
+    global allcorrs
+    allcorrs = np.empty(100*nresidues**2)
+
+    for i in range(100):
         # Shuffle the residues at each position
         for r in range(nresidues):
             alignment[r, :] = np.random.permutation(alignment[r, :])
@@ -153,12 +157,16 @@ def find_cutoff(alignment):
         # Add the eigenvalues to the running list of eigenvalues
         eigs.extend(np.linalg.eigvalsh(corr))
 
+        allcorrs[i*nresidues**2:(i+1)*nresidues**2] = \
+            abs((corr*~np.identity(nresidues,dtype=bool)).ravel())
+
         # Poor-man's Progress bar
         if i%10 == 9: 
             print '.',
+            sys.stdout.flush()
         if i%100 == 99: 
             print ''
-    print
+            sys.stdout.flush()
     return eigs
 
 def clean_matrix(correlation_matrix, lambda_cutoff):
