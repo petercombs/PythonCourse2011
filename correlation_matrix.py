@@ -1,6 +1,31 @@
 import numpy as np
+import sys
 from sequence_tools import read_fasta
 from collections import Counter
+
+def filter_and_generate_binary(data):
+    # Remove strains that aren't similar enough to each other
+    data = filter_strains(data)
+
+    # Find the most common residue at each nucleotide location
+    consensus_sequence, novars = get_consensus(data)
+
+    # Turns out we may also want to exclude gap residues. Or not. I dunno.
+    gaps = [idx for idx, res in enumerate(consensus_sequence) if res is '-']
+
+    novars.extend(gaps)
+
+
+    data, consensus_sequence = strip_positions(data, consensus_sequence,
+                                                     novars)
+
+    x = generate_binary_matrix(data, consensus_sequence)
+    # x is boolean 2D array, where 
+    # each row is a residue,
+    # each column is a strain of HIV,
+    # and 1 means that it is the same as the consensus sequence
+    return x
+
 
 def filter_strains(data):
     """ Filters out strains that are sufficiently different from the rest
@@ -185,30 +210,36 @@ gag_data_full = read_fasta(gag_seq_file)
 gag_data = [gag_data_full[name] for name in gag_data_full 
             if 'B' in name.split('.')[0]]
 
-# Remove strains that aren't similar enough to each other
-gag_data = filter_strains(gag_data)
+print "First Pass Filtering"
+sys.stdout.flush()
+x = filter_and_generate_binary(gag_data)
 
-# Find the most common residue at each nucleotide location
-consensus_sequence, novars = get_consensus(gag_data)
+distinct_strains = remove_phylogeny(x)
+gag_data2 = [strain for idx, strain in enumerate(gag_data) if idx in
+             distinct_strains]
 
-gag_data, consensus_sequence = remove_nonvarying(gag_data, consensus_sequence,
-                                                 novars)
-
-x = generate_binary_matrix(gag_data, consensus_sequence)
-# x is boolean 2D array, where 
-# each row is a residue,
-# each column is a strain of HIV,
-# and 1 means that it is the same as the consensus sequence
+rows, cols = np.shape(x)
+print "Found %d locations in %d strains" % (rows, cols)
+print "Second Pass filtering"
+sys.stdout.flush()
 
 
-x = remove_phylogeny(x)
+
+x = filter_and_generate_binary(gag_data2)
+print "Found %d locations in %d strains" % (rows, cols)
+
+print "Building matrix"
+sys.stdout.flush()
 
 corr_matrix = np.corrcoef(x)
 
+#print "Finding Cutoff"
 #eigs = find_cutoff(x)
 #lambda_cutoff = max(eigs)
 lambda_cutoff = 3.45
 
+print "Cleaning matrix"
+sys.stdout.flush()
 corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
 
 sectors = determine_sectors(corr_matrix, lambda_cutoff)
