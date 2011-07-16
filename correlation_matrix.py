@@ -183,7 +183,15 @@ def clean_matrix(correlation_matrix, lambda_cutoff):
     return clean
 
 def remove_phylogeny(binary_matrix):
-    return binary_matrix
+    gamma = np.cov(binary_matrix.T)
+    eigvals, vecs = np.linalg.eigh(gamma)
+    vecs = vecs.T
+
+    # Here there be dragons
+    # Using the projections along eigenvector 2 and the cutoff of -.1 was
+    # empirically determined. Your mileage may vary
+    proj2 = [np.dot(gamma[i], vecs[-2]) for i in range(len(eigvals))]
+    return [pos for pos, proj in enumerate(proj2) if proj > -.1]
 
 def determine_sectors(correlation_matrix, lambda_cutoff):
     """ 
