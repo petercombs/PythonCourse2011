@@ -73,14 +73,22 @@ def get_consensus(strains):
 
     return consensus, novars
 
-def remove_nonvarying(data, consensus, novar):
-    data = [strip_nonvarying(seq, novar) for seq in data]
-    consensus = strip_nonvarying(consensus, novar)
+def strip_positions(data, consensus, novar):
+    data = [strip_single_position(seq, novar) for seq in data]
+    consensus = strip_single_position(consensus, novar)
 
     return data, consensus
 
-def strip_nonvarying(string, novar):
-    return "".join([char for idx, char in string if idx not in novar])
+def strip_single_position(string, novar):
+    string = np.array(list(string))
+    take = set(range(len(string)))
+    take.difference_update(novar)
+    take = np.array(sorted(list(take)))
+    return "".join(string[take])
+    return "".join([char for idx, char in enumerate(string) if idx not in novar])
+
+
+
 
 
 def generate_binary_matrix(data, consensus):
