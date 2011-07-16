@@ -200,22 +200,29 @@ def determine_sectors(correlation_matrix, lambda_cutoff):
     Returns a list of lists, where each list contains the residue numbers
     (zero-indexed) of the components of each sector
     """
+
+    global best, loadings
+
     eigvals, vecs = np.linalg.eigh(correlation_matrix)
 
     n_residues = n_vectors = len(eigvals)
 
     loadings = [Counter() for i in range(n_residues)]
 
+    othercorrs = abs(correlation_matrix 
+                     * (~ np.identity(n_residues, dtype=bool)))
+
     for r in range(n_residues):
         for k in range(n_vectors):
             loading = np.dot(correlation_matrix[:,r], vecs[:,k])
-            if eigvals[k] > lambda_cutoff and loading > .1:
-                loadings[r][k] = loading
+            if eigvals[k] > lambda_cutoff and max(othercorrs[k]) > .2:
+                loadings[r][k] = abs(loading)
 
-    print loadings
+    #print loadings
     best = [(l.most_common()[0][0] if len(l) else None)
             for l in loadings]
-    print best
+    #print best
+    return best
 
 
 gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
@@ -284,3 +291,30 @@ sec5 = 17, 31, 47, 137, 161, 261, 275, 278, 290, 298, 324, 334, 337, 343]
 secQ = [18, 30, 54, 62, 69, 90, 125, 130, 146, 147, 159, 173, 176, 200, 218,
         219, 223, 224, 228, 230, 234, 242, 248, 252, 255, 256, 264, 267, 268,
         273, 280, 281, 286, 312, 341, 357, 362, 374, 375, 376, 401, 403]
+
+l,v = np.linalg.eigh(corr_matrix_clean)
+
+from matplotlib import pyplot as mpl
+
+n = 8
+
+best = np.array(best)
+for i in range(1,n+1):
+    for j in range(1,n+1):
+        proji = np.array([np.dot(corr_matrix_clean[s], v[-i]) for s in
+                       range(len(l))])
+        projj = np.array([np.dot(corr_matrix_clean[s], v[-j]) for s in
+                       range(len(l))])
+        mpl.subplot(n,n,(i-1)*n+j)
+        mpl.plot(proji, projj,'x',label='Other', markerfacecolor=(1,1,1,0))
+        for sector in sorted(list(set(best))):
+            sel = np.where(best == sector)[0]
+            mpl.plot(proji[sel], projj[sel], 'x', label=str(500-sector),)
+        if i == 1:
+            mpl.title(str(j))
+        if j == 1:
+            mpl.ylabel(str(i))
+        if i == j:
+            mpl.legend(numpoints=1)
+
+mpl.show()
