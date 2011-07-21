@@ -2,17 +2,29 @@ import numpy as np
 import sys
 from sequence_tools import read_fasta
 from collections import Counter
+from scipy import stats
 
 def filter_and_generate_binary(data):
+    """Removes malformed strains and all sites that have non-varying residues or
+    gaps.
+    
+    The return value x is a 2D boolean array, where:
+        *each row corresponds to a residue
+        *each column corresponds to a different strain
+        *a 1 means that the given strain at that residue is identical to the
+            consensus sequence
+    """
     # Remove strains that aren't similar enough to each other
     data = filter_strains(data)
 
     # Find the most common residue at each nucleotide location
     consensus_sequence, novars = get_consensus(data)
 
-    # Turns out we may also want to exclude gap residues. Or not. I dunno.
+    # For scientific and pratical reasons, we should exclude all sites that have
+    # are a gap in the consensus strain. These won't be as useful for, say,
+    # identifying locations for antibodies, and if we leave them in, we get way
+    # too many sectors.
     gaps = [idx for idx, res in enumerate(consensus_sequence) if res is '-']
-
     novars.extend(gaps)
 
 
@@ -20,10 +32,7 @@ def filter_and_generate_binary(data):
                                                      novars)
 
     x = generate_binary_matrix(data, consensus_sequence)
-    # x is boolean 2D array, where 
-    # each row is a residue,
-    # each column is a strain of HIV,
-    # and 1 means that it is the same as the consensus sequence
+
     return x
 
 
@@ -39,22 +48,16 @@ def filter_strains(data):
     """
     # This is a python data type that counts things, and can tell you the most
     # common element
-    length_counter = Counter()
+    length_counter = Counter([len(strain) for strain in data])
 
-    # Count up the lengths of the strains
-    for strain in data:
-        length_counter[len(strain)] += 1
 
     # A Counter's most_common method returns a list of tuples, with the first
     # element as the item, and the second element as the count of that item,
     # with the list sorted in descending order by counts
     most_common = length_counter.most_common()[0][0]
 
-    lengths = [len(strain) for strain in data]
-    # We need a copy of the data so we don't modify the list while looping over
-    # it, which leads to odd behavior.
+    # Collect only strains that are the right length into the return variable
     good_data = []
-
     for sequence in data:
         if len(sequence) == most_common:
             good_data.append(sequence)
@@ -99,26 +102,25 @@ def get_consensus(strains):
     return consensus, novars
 
 def strip_positions(data, consensus, novar):
+    """Remove positions given in novar from all of the strains as well as the
+    consensus strain.
+    """
     data = [strip_single_position(seq, novar) for seq in data]
     consensus = strip_single_position(consensus, novar)
 
     return data, consensus
 
 def strip_single_position(string, novar):
-    string = np.array(list(string))
-    take = set(range(len(string)))
-    take.difference_update(novar)
-    take = np.array(sorted(list(take)))
-    return "".join(string[take])
-    return "".join([char for idx, char in enumerate(string) if idx not in novar])
+    "Remove positions given in novar from a single string"
+    novar = set(novar)  
+    # Sets allow constant-time test of membership, as opposed to lists which
+    # depend on the length of the list
 
-
-
-
+    return "".join([char for i, char in enumerate(string) 
+                    if i not in novar])
 
 def generate_binary_matrix(data, consensus):
-    """
-    Generates a binary array x_i(s), where:
+    """ Generates a binary array x_i(s), where:
         * Each column corresponds to a particular strain
         * Each row corresponds to a particular site
         * The element is 1 if that strain at that site is indentical to the
@@ -137,7 +139,7 @@ def find_cutoff(alignment):
     eigs = []
 
     # We don't want our permutations to mess with the original alignment, which
-    # it would do if we don't make a copy of it.  Remember the interlude from
+    # it might do if we don't make a copy of it.  Remember the interlude from
     # day 2?
     alignment = alignment.copy()
 
@@ -163,10 +165,8 @@ def find_cutoff(alignment):
         # Poor-man's Progress bar
         if i%10 == 9: 
             print '.',
-            sys.stdout.flush()
         if i%100 == 99: 
             print ''
-            sys.stdout.flush()
     return eigs
 
 def clean_matrix(correlation_matrix, lambda_cutoff):
@@ -175,10 +175,16 @@ def clean_matrix(correlation_matrix, lambda_cutoff):
     Every eigenvector with an eigenvalue greater than the cutoff is used to
     generate a new correlation matrix
     """
+    # Calculate the eigenvalues and eigenvectors
+    # the h at the end means it is Hermitian (for real values: it's symmetric)
     eigvals, vecs = np.linalg.eigh(correlation_matrix)
+
+    # The "clean" matrix starts out as just zeros
     clean = np.zeros_like(correlation_matrix)
     for k, eigval in enumerate(eigvals):
         if eigval > lambda_cutoff and eigval != max(eigvals):
+            # For each eigenvalue larger than the cutoff, compute the outer
+            # product, and add it to the clean matrix. This is equation S5
             clean += eigval * np.outer(vecs[:,k], vecs[:,k])
     return clean
 
@@ -190,18 +196,19 @@ def remove_phylogeny(binary_matrix):
     # Here there be dragons
     # Using the projections along eigenvector 2 and the cutoff of -.1 was
     # empirically determined. Your mileage may vary
+    proj1 = [np.dot(gamma[i], vecs[-1]) for i in range(len(eigvals))]
     proj2 = [np.dot(gamma[i], vecs[-2]) for i in range(len(eigvals))]
     return [pos for pos, proj in enumerate(proj2) if proj > -.1]
 
 def determine_sectors(correlation_matrix, lambda_cutoff):
-    """ 
-    Determines the sectors of the protein
+    """ Determines the sectors of the protein
 
-    Returns a list of lists, where each list contains the residue numbers
-    (zero-indexed) of the components of each sector
+    See sections S6 and S7 of the supplementals.
+
+    This function returns both the strongest eigenvalue at a given residue and
+    the a list of counters with the projection of each residue onto significant
+    eigenvectors
     """
-
-    global best, loadings
 
     eigvals, vecs = np.linalg.eigh(correlation_matrix)
 
@@ -209,20 +216,34 @@ def determine_sectors(correlation_matrix, lambda_cutoff):
 
     loadings = [Counter() for i in range(n_residues)]
 
+    # removes the autocorrelations, which should typically be much higher than
+    # the inter-residue correlations
+    # This works by multiplying by the inverse of the identity matrix
     othercorrs = abs(correlation_matrix 
                      * (~ np.identity(n_residues, dtype=bool)))
 
     for r in range(n_residues):
+        if max(othercorrs[r]) < 0.15: 
+            # "We chose to exclude from sectors those residues that did not
+            # show any correlation higher than 0.1 (in absolute magnitude) with
+            # any other sector residue"
+            # I thought their threshold was a little low, since in a given
+            # random matrix of about ~500x500, you would expect to see over 1000
+            # correlations higher than that by chance, if you believe their P <
+            # 5x10^-3 statistic
+            continue
+
         for k in range(n_vectors):
-            loading = np.dot(correlation_matrix[:,r], vecs[:,k])
-            if eigvals[k] > lambda_cutoff and max(othercorrs[k]) > .2:
+            if eigvals[k] > lambda_cutoff: 
+                # The loading is simply the projection of the correlation values for
+                # each residue onto a given eigenvector
+                loading = np.dot(correlation_matrix[:,r], vecs[:,k])
                 loadings[r][k] = abs(loading)
 
-    #print loadings
-    best = [(l.most_common()[0][0] if len(l) else None)
+    best = [(l.most_common()[0][0] if (len(l) > 0) else None)
             for l in loadings]
-    #print best
-    return best
+
+    return best, loadings
 
 
 gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
@@ -234,27 +255,36 @@ gag_data = [gag_data_full[name] for name in gag_data_full
             if 'B' in name.split('.')[0]]
 
 print "First Pass Filtering"
-sys.stdout.flush()
 x = filter_and_generate_binary(gag_data)
 
-distinct_strains = remove_phylogeny(x)
+distinct_strains = remove_distinct_evo(x)
 gag_data2 = [strain for idx, strain in enumerate(gag_data) if idx in
              distinct_strains]
 
 rows, cols = np.shape(x)
 print "Found %d locations in %d strains" % (rows, cols)
-print "Second Pass filtering"
-sys.stdout.flush()
 
+print "Second Pass filtering"
+
+# The claim in S4 is that the method works best if we remove the contribution
+# from evolutionarily distinct sequences, so we'll have to re-run once we've
+# taken those out.
 
 
 x = filter_and_generate_binary(gag_data2)
+x = clean_phylogeny(x)
+
+rows, cols = np.shape(x)
 print "Found %d locations in %d strains" % (rows, cols)
 
+
 print "Building matrix"
-sys.stdout.flush()
 
 corr_matrix = np.corrcoef(x)
+
+
+# It actually takes a while for this to run, so I'm going to leave it commented
+# out, and just put in the result that I happen to know it will give us.
 
 #print "Finding Cutoff"
 #eigs = find_cutoff(x)
@@ -262,10 +292,9 @@ corr_matrix = np.corrcoef(x)
 lambda_cutoff = 3.45
 
 print "Cleaning matrix"
-sys.stdout.flush()
 corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
 
-sectors = determine_sectors(corr_matrix, lambda_cutoff)
+best, loadings = determine_sectors(corr_matrix_clean, lambda_cutoff)
 
 sec1 = [1, 88, 2, 94, 3, 97, 4, 99, 5, 100, 6, 108, 8, 118, 9, 120, 11, 122, 12,
         123, 14, 128, 16, 129, 19, 131, 20, 133, 21, 134, 24, 135, 27, 136, 29,
