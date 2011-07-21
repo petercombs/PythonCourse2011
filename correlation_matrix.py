@@ -245,6 +245,18 @@ def determine_sectors(correlation_matrix, lambda_cutoff):
 
     return best, loadings
 
+def imshow_with_boxes(corr_matrix, list_of_sectors, **kwargs):
+    allsecs = np.hstack(list_of_sectors)
+    mpl.pcolor(corr_matrix[np.meshgrid(allsecs, allsecs)],**kwargs)
+
+    start = 0
+    for sec in list_of_sectors:
+        mpl.plot([start, start+len(sec), start+len(sec), start, start],
+             [start, start, start+len(sec), start+len(sec), start], 
+             'r-')
+        start += len(sec)
+
+
 
 gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
@@ -315,35 +327,43 @@ sec3 = [53, 305, 140, 306, 163, 310, 167, 316, 169, 317, 170, 319, 171, 323,
 
 sec4 = [166, 197, 211, 222, 236, 237, 308, 318, 354, 396]
 
-sec5 = 17, 31, 47, 137, 161, 261, 275, 278, 290, 298, 324, 334, 337, 343]
+sec5 = [17, 31, 47, 137, 161, 261, 275, 278, 290, 298, 324, 334, 337, 343]
 
 secQ = [18, 30, 54, 62, 69, 90, 125, 130, 146, 147, 159, 173, 176, 200, 218,
         219, 223, 224, 228, 230, 234, 242, 248, 252, 255, 256, 264, 267, 268,
         273, 280, 281, 286, 312, 341, 357, 362, 374, 375, 376, 401, 403]
 
 l,v = np.linalg.eigh(corr_matrix_clean)
+v = v.T
 
 from matplotlib import pyplot as mpl
 
-n = 8
+n = 5
 
 best = np.array(best)
+
+
+
 for i in range(1,n+1):
     for j in range(1,n+1):
-        proji = np.array([np.dot(corr_matrix_clean[s], v[-i]) for s in
-                       range(len(l))])
-        projj = np.array([np.dot(corr_matrix_clean[s], v[-j]) for s in
-                       range(len(l))])
+        proji = np.dot(corr_matrix_clean.T, v[-i])        
+        projj = np.dot(corr_matrix_clean.T, v[-j]) 
         mpl.subplot(n,n,(i-1)*n+j)
-        mpl.plot(proji, projj,'x',label='Other', markerfacecolor=(1,1,1,0))
+        mpl.plot(proji, projj,'o',label='Other', markerfacecolor=(1,1,1,0))
         for sector in sorted(list(set(best))):
-            sel = np.where(best == sector)[0]
-            mpl.plot(proji[sel], projj[sel], 'x', label=str(500-sector),)
+            if sector is None:
+                continue
+            try:
+                sel = np.where(best == sector)[0]
+                mpl.plot(proji[sel], projj[sel], 'o', label=str(500-sector),)
+            except (IndexError, TypeError) as error:
+                print "Skipping sector", sector, "after error", error
+                pass
         if i == 1:
             mpl.title(str(j))
         if j == 1:
             mpl.ylabel(str(i))
-        if i == j:
+        if i == j == n:
             mpl.legend(numpoints=1)
 
 mpl.show()
