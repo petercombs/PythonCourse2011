@@ -229,11 +229,13 @@ def clean_phylogeny(binary_matrix):
     # y_i(s) = alpha_i + epsilon_i(s)
     return alpha + epsilon
 
-def remove_distinct_evo(binary_matrix):
+def find_distinct_evo(binary_matrix):
     """ Removes evolutionarily distinct sequences
     
     Calculates a correlation matrix for the strains as they relate to each
     other, and then removes those that are significantly different
+
+    This is section S5
     """
     gamma = np.cov(binary_matrix.T)
     eigvals, vecs = np.linalg.eigh(gamma)
@@ -318,7 +320,7 @@ gag_data = [gag_data_full[name] for name in gag_data_full
 print "First Pass Filtering"
 x = filter_and_generate_binary(gag_data)
 
-distinct_strains = remove_distinct_evo(x)
+distinct_strains = find_distinct_evo(x)
 gag_data2 = [strain for idx, strain in enumerate(gag_data) if idx in
              distinct_strains]
 
