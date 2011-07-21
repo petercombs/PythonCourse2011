@@ -188,7 +188,53 @@ def clean_matrix(correlation_matrix, lambda_cutoff):
             clean += eigval * np.outer(vecs[:,k], vecs[:,k])
     return clean
 
-def remove_phylogeny(binary_matrix):
+def clean_phylogeny(binary_matrix):
+    """ Cleans the binary matrix by removing the contribution of phylogeny
+    
+    This is section S4.
+
+    """
+
+    eigvals, eigvecs = np.linalg.eigh(np.corrcoef(binary_matrix))
+
+    # "u_i^1 are the components of the eigenvector corresponding to the largest
+    # eigenvalue"
+    u1 = eigvecs[:,eigvals.argmax()]
+
+    num_residues, num_strains = np.shape(binary_matrix)
+
+    # Equation S11
+    M = np.array([sum(u1[i] * binary_matrix[i,s] 
+                      for i in range(num_residues))
+                  for s in range(num_strains)])
+    
+    # Alpha could be a 1D array, but this is more convenient since we will need
+    # to force it into a 2D array eventually
+    alpha = np.zeros( (num_residues, num_strains) )
+    beta = np.zeros( num_residues )
+    epsilon = np.zeros( (num_residues, num_strains) )
+
+    for i in range(num_residues):
+        # "The value of the parameters alpha_i and beta_i are estimated through
+        # a least square regression..."
+        slope, intercept, rval, pval, stderr = stats.linregress(M, x[i,:])
+        alpha[i,:] = intercept
+        beta[i] = slope
+    
+    # Equation S10:
+    # x_i(s) = alpha_i + beta_i M(s) + epsilon_i(s)
+    epsilon = x - alpha - np.outer(beta, M)
+
+    # Equation S12:
+    # y_i(s) = alpha_i + epsilon_i(s)
+    return alpha + epsilon
+
+def remove_distinct_evo(binary_matrix):
+    """ Removes evolutionarily distinct sequences
+    
+    Calculates a correlation matrix for the strains as they relate to each
+    other, and then removes those that are significantly different
+    """
     gamma = np.cov(binary_matrix.T)
     eigvals, vecs = np.linalg.eigh(gamma)
     vecs = vecs.T
