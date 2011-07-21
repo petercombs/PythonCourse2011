@@ -154,7 +154,7 @@ def find_cutoff(alignment):
             alignment[r, :] = np.random.permutation(alignment[r, :])
 
         # Calculate the correlation coefficient
-        corr = np.corrcoef(alignment)
+        corr = np.corrcoef(alignment, bias=1)
         
         # Add the eigenvalues to the running list of eigenvalues
         eigs.extend(np.linalg.eigvalsh(corr))
@@ -280,7 +280,7 @@ print "Found %d locations in %d strains" % (rows, cols)
 
 print "Building matrix"
 
-corr_matrix = np.corrcoef(x)
+corr_matrix = np.corrcoef(x, bias=1)
 
 
 # It actually takes a while for this to run, so I'm going to leave it commented
