@@ -1,8 +1,9 @@
 import numpy as np
 import sys
-from sequence_tools import read_fasta
+from Bio import SeqIO, AlignIO
 from collections import Counter
 from scipy import stats
+from argparse import ArgumentParser
 
 def filter_and_generate_binary(data):
     """Removes malformed strains and all sites that have non-varying residues or
@@ -307,140 +308,155 @@ def imshow_with_boxes(corr_matrix, list_of_sectors, **kwargs):
 ### Main Program Start
 #############################################################
 
-gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
-gag_data_full = read_fasta(gag_seq_file)
+if __name__ == "__main__":
+    parser = ArgumentParser(description="Identify sectors of coevolving amino acids" )
 
-# We don't actually need the names of the sequences, and a list is more
-# convenient for what we're doing than a dictionary
-gag_data = [gag_data_full[name] for name in gag_data_full 
-            if 'B' in name.split('.')[0]]
+    parser.add_argument('infile', nargs='?', 
+                        help='The file containing alignments of the protein'
+                        'currently supports: FASTA')
 
-print "First Pass Filtering"
-x = filter_and_generate_binary(gag_data)
+    args = parser.parse_args()
 
-distinct_strains = remove_distinct_evo(x)
-gag_data2 = [strain for idx, strain in enumerate(gag_data) if idx in
-             distinct_strains]
+    filetype = os.path.splitext(args.infile)[-1]
 
-rows, cols = np.shape(x)
-print "Found %d locations in %d strains" % (rows, cols)
-
-print "Second Pass filtering"
-
-# The claim in S4 is that the method works best if we remove the contribution
-# from evolutionarily distinct sequences, so we'll have to re-run once we've
-# taken those out.
-
-
-x = filter_and_generate_binary(gag_data2)
-x = clean_phylogeny(x)
-
-rows, cols = np.shape(x)
-print "Found %d locations in %d strains" % (rows, cols)
-
-
-print "Building matrix"
-
-corr_matrix = np.corrcoef(x, bias=1)
-
-
-# It actually takes a while for this to run, so I'm going to leave it commented
-# out, and just put in the result that I happen to know it will give us.
-
-#print "Finding Cutoff"
-#eigs = find_cutoff(x)
-#lambda_cutoff = max(eigs)
-lambda_cutoff = 3.45
-
-print "Cleaning matrix"
-corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
-
-best, loadings = determine_sectors(corr_matrix_clean, lambda_cutoff)
-
-sec1 = [1, 88, 2, 94, 3, 97, 4, 99, 5, 100, 6, 108, 8, 118, 9, 120, 11, 122, 12,
-        123, 14, 128, 16, 129, 19, 131, 20, 133, 21, 134, 24, 135, 27, 136, 29,
-        138, 32, 139, 33, 141, 35, 142, 36, 143, 38, 144, 39, 145, 41, 148, 45,
-        149, 48, 150, 50, 151, 51, 152, 52, 153, 57, 154, 60, 155, 63, 156, 73,
-        158, 77, 160, 79, 251, 83, 276, 86, 279, 87, 433]
-
-sec2 = [23, 446, 37, 450, 178, 452, 379, 455, 381, 457, 386, 459, 391, 461, 392,
-        462, 393, 463, 394, 464, 395, 489, 399, 400, 402, 405, 406, 407, 408,
-        412, 413, 414, 416, 417, 419, 420, 423, 430, 431, 432, 434, 435, 437,
-        438, 439, 440, 442, 443, 444, 445]
-
-sec3 = [53, 305, 140, 306, 163, 310, 167, 316, 169, 317, 170, 319, 171, 323,
-        172, 326, 174, 338, 175, 344, 179, 345, 180, 346, 181, 182, 185, 186,
-        187, 189, 191, 198, 199, 212, 221, 225, 229, 233, 240, 243, 245, 249,
-        257, 260, 263, 265, 269, 284, 288, 291, 295, 347, 363, 364, 365, 366,
-        367]
-
-sec4 = [166, 197, 211, 222, 236, 237, 308, 318, 354, 396]
-
-sec5 = [17, 31, 47, 137, 161, 261, 275, 278, 290, 298, 324, 334, 337, 343]
-
-secQ = [18, 30, 54, 62, 69, 90, 125, 130, 146, 147, 159, 173, 176, 200, 218,
-        219, 223, 224, 228, 230, 234, 242, 248, 252, 255, 256, 264, 267, 268,
-        273, 280, 281, 286, 312, 341, 357, 362, 374, 375, 376, 401, 403]
-
-# Takes the hard-coded sectors and combines them into a single list
-secs_them = sec1 + sec2 + sec3 + sec4 + sec5
-# Their coordinates are 1-based, whereas in Python everything is 0-based
-secs_them = np.array(secs_them) - 1
-
-l,v = np.linalg.eigh(corr_matrix_clean)
-v = v.T
-
-from matplotlib import pyplot as mpl
-
-n = 5
-
-best = np.array(best)
+    if (filetype is 'fasta') or (filetype is 'fa') or (filetype is 'fsa'):
+        seq_data_full = [seq for seq in SeqIO.parse(args.infile, 'fasta')]
+    else:
+        print "The extension '%s' is not currently supported." % filetype
 
 
 
-for i in range(1,n+1):
-    for j in range(1,n+1):
-        proji = np.dot(corr_matrix_clean.T, v[-i])        
-        projj = np.dot(corr_matrix_clean.T, v[-j]) 
-        mpl.subplot(n,n,(i-1)*n+j)
-        mpl.plot(proji, projj,'o',label='Other', markerfacecolor=(1,1,1,0))
-        for sector in sorted(list(set(best))):
-            if sector is None:
-                continue
-            try:
-                sel = np.where(best == sector)[0]
-                mpl.plot(proji[sel], projj[sel], 'o', label=str(500-sector),)
-            except (IndexError, TypeError) as error:
-                print "Skipping sector", sector, "after error", error
-                pass
-        if i == 1:
-            mpl.title(str(j))
-        if j == 1:
-            mpl.ylabel(str(i))
-        if i == j == n:
-            mpl.legend(numpoints=1)
+    # We don't actually need the names of the sequences, and a list is more
+    # convenient for what we're doing than a dictionary
+    seq_data = [seqrec.seq for seqrec in seq_data_full 
+                if 'B' in seqrec.name.split('.')[0]]
 
-mpl.show()
+    print "First Pass Filtering"
+    x = filter_and_generate_binary(seq_data)
 
-bestl = np.array([(ldg.most_common()[0][1] if len(ldg) else None) for ldg in loadings])
+    distinct_strains = remove_distinct_evo(x)
+    seq_data2 = [strain for idx, strain in enumerate(seq_data) if idx in
+                 distinct_strains]
 
-secs = []
-for sec in sorted(list(set(best)), reverse=True):
-    if sec is None:
-        continue
-    sites = np.where(best == sec)[0]
-    ls = bestl[sites]
-    secs.append(sites[ls.argsort()])
+    rows, cols = np.shape(x)
+    print "Found %d locations in %d strains" % (rows, cols)
+
+    print "Second Pass filtering"
+
+    # The claim in S4 is that the method works best if we remove the contribution
+    # from evolutionarily distinct sequences, so we'll have to re-run once we've
+    # taken those out.
 
 
-secs_me = np.hstack(secs)
+    x = filter_and_generate_binary(seq_data2)
+    x = clean_phylogeny(x)
 
-me_only = set(secs_me).difference(secs_them)
-them_only = set(secs_me).symmetric_difference(secs_them) - me_only
+    rows, cols = np.shape(x)
+    print "Found %d locations in %d strains" % (rows, cols)
 
-print "I did find   %3d that Dahirel et al didn't" % len(me_only)
-print "Did not find %3d that Dahirel et al did" % len(them_only)
 
-mpl.figure()
+    print "Building matrix"
 
-imshow_with_boxes(corr_matrix_clean, secs)
+    corr_matrix = np.corrcoef(x, bias=1)
+
+
+    # It actually takes a while for this to run, so I'm going to leave it commented
+    # out, and just put in the result that I happen to know it will give us.
+
+    #print "Finding Cutoff"
+    #eigs = find_cutoff(x)
+    #lambda_cutoff = max(eigs)
+    lambda_cutoff = 3.45
+
+    print "Cleaning matrix"
+    corr_matrix_clean = clean_matrix(corr_matrix, lambda_cutoff)
+
+    best, loadings = determine_sectors(corr_matrix_clean, lambda_cutoff)
+
+    sec1 = [1, 88, 2, 94, 3, 97, 4, 99, 5, 100, 6, 108, 8, 118, 9, 120, 11, 122, 12,
+            123, 14, 128, 16, 129, 19, 131, 20, 133, 21, 134, 24, 135, 27, 136, 29,
+            138, 32, 139, 33, 141, 35, 142, 36, 143, 38, 144, 39, 145, 41, 148, 45,
+            149, 48, 150, 50, 151, 51, 152, 52, 153, 57, 154, 60, 155, 63, 156, 73,
+            158, 77, 160, 79, 251, 83, 276, 86, 279, 87, 433]
+
+    sec2 = [23, 446, 37, 450, 178, 452, 379, 455, 381, 457, 386, 459, 391, 461, 392,
+            462, 393, 463, 394, 464, 395, 489, 399, 400, 402, 405, 406, 407, 408,
+            412, 413, 414, 416, 417, 419, 420, 423, 430, 431, 432, 434, 435, 437,
+            438, 439, 440, 442, 443, 444, 445]
+
+    sec3 = [53, 305, 140, 306, 163, 310, 167, 316, 169, 317, 170, 319, 171, 323,
+            172, 326, 174, 338, 175, 344, 179, 345, 180, 346, 181, 182, 185, 186,
+            187, 189, 191, 198, 199, 212, 221, 225, 229, 233, 240, 243, 245, 249,
+            257, 260, 263, 265, 269, 284, 288, 291, 295, 347, 363, 364, 365, 366,
+            367]
+
+    sec4 = [166, 197, 211, 222, 236, 237, 308, 318, 354, 396]
+
+    sec5 = [17, 31, 47, 137, 161, 261, 275, 278, 290, 298, 324, 334, 337, 343]
+
+    secQ = [18, 30, 54, 62, 69, 90, 125, 130, 146, 147, 159, 173, 176, 200, 218,
+            219, 223, 224, 228, 230, 234, 242, 248, 252, 255, 256, 264, 267, 268,
+            273, 280, 281, 286, 312, 341, 357, 362, 374, 375, 376, 401, 403]
+
+    # Takes the hard-coded sectors and combines them into a single list
+    secs_them = sec1 + sec2 + sec3 + sec4 + sec5
+    # Their coordinates are 1-based, whereas in Python everything is 0-based
+    secs_them = np.array(secs_them) - 1
+
+    l,v = np.linalg.eigh(corr_matrix_clean)
+    v = v.T
+
+    from matplotlib import pyplot as mpl
+
+    n = 5
+
+    best = np.array(best)
+
+
+
+    for i in range(1,n+1):
+        for j in range(1,n+1):
+            proji = np.dot(corr_matrix_clean.T, v[-i])        
+            projj = np.dot(corr_matrix_clean.T, v[-j]) 
+            mpl.subplot(n,n,(i-1)*n+j)
+            mpl.plot(proji, projj,'o',label='Other', markerfacecolor=(1,1,1,0))
+            for sector in sorted(list(set(best))):
+                if sector is None:
+                    continue
+                try:
+                    sel = np.where(best == sector)[0]
+                    mpl.plot(proji[sel], projj[sel], 'o', label=str(500-sector),)
+                except (IndexError, TypeError) as error:
+                    print "Skipping sector", sector, "after error", error
+                    pass
+            if i == 1:
+                mpl.title(str(j))
+            if j == 1:
+                mpl.ylabel(str(i))
+            if i == j == n:
+                mpl.legend(numpoints=1)
+
+    mpl.show()
+
+    bestl = np.array([(ldg.most_common()[0][1] if len(ldg) else None) for ldg in loadings])
+
+    secs = []
+    for sec in sorted(list(set(best)), reverse=True):
+        if sec is None:
+            continue
+        sites = np.where(best == sec)[0]
+        ls = bestl[sites]
+        secs.append(sites[ls.argsort()])
+
+
+    secs_me = np.hstack(secs)
+
+    me_only = set(secs_me).difference(secs_them)
+    them_only = set(secs_me).symmetric_difference(secs_them) - me_only
+
+    print "I did find   %3d that Dahirel et al didn't" % len(me_only)
+    print "Did not find %3d that Dahirel et al did" % len(them_only)
+
+    mpl.figure()
+
+    imshow_with_boxes(corr_matrix_clean, secs)
