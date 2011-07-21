@@ -303,6 +303,9 @@ def imshow_with_boxes(corr_matrix, list_of_sectors, **kwargs):
         start += len(sec)
 
 
+#############################################################
+### Main Program Start
+#############################################################
 
 gag_seq_file = '../data/HIV1_ALL_2009_GAG_PRO.fasta'
 gag_data_full = read_fasta(gag_seq_file)
@@ -379,6 +382,11 @@ secQ = [18, 30, 54, 62, 69, 90, 125, 130, 146, 147, 159, 173, 176, 200, 218,
         219, 223, 224, 228, 230, 234, 242, 248, 252, 255, 256, 264, 267, 268,
         273, 280, 281, 286, 312, 341, 357, 362, 374, 375, 376, 401, 403]
 
+# Takes the hard-coded sectors and combines them into a single list
+secs_them = sec1 + sec2 + sec3 + sec4 + sec5
+# Their coordinates are 1-based, whereas in Python everything is 0-based
+secs_them = np.array(secs_them) - 1
+
 l,v = np.linalg.eigh(corr_matrix_clean)
 v = v.T
 
@@ -413,3 +421,26 @@ for i in range(1,n+1):
             mpl.legend(numpoints=1)
 
 mpl.show()
+
+bestl = np.array([(ldg.most_common()[0][1] if len(ldg) else None) for ldg in loadings])
+
+secs = []
+for sec in sorted(list(set(best)), reverse=True):
+    if sec is None:
+        continue
+    sites = np.where(best == sec)[0]
+    ls = bestl[sites]
+    secs.append(sites[ls.argsort()])
+
+
+secs_me = np.hstack(secs)
+
+me_only = set(secs_me).difference(secs_them)
+them_only = set(secs_me).symmetric_difference(secs_them) - me_only
+
+print "I did find   %3d that Dahirel et al didn't" % len(me_only)
+print "Did not find %3d that Dahirel et al did" % len(them_only)
+
+mpl.figure()
+
+imshow_with_boxes(corr_matrix_clean, secs)
