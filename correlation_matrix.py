@@ -314,10 +314,15 @@ if __name__ == "__main__":
     parser.add_argument('infile', nargs='?', 
                         help='The file containing alignments of the protein'
                         'currently supports: FASTA')
+    parser.add_argument('-f', '--format', default=False,
+                        help='optional format description of the alignment')
 
     args = parser.parse_args()
 
-    filetype = os.path.splitext(args.infile)[-1]
+    if args.format:
+        filtype = args.format
+    else:
+        filetype = os.path.splitext(args.infile)[-1]
 
     if (filetype is 'fasta') or (filetype is 'fa') or (filetype is 'fsa'):
         seq_data_full = [seq for seq in SeqIO.parse(args.infile, 'fasta')]
