@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 from Bio import SeqIO, AlignIO
 from collections import Counter
 from scipy import stats
@@ -230,11 +229,13 @@ def clean_phylogeny(binary_matrix):
     # y_i(s) = alpha_i + epsilon_i(s)
     return alpha + epsilon
 
-def remove_distinct_evo(binary_matrix):
+def find_distinct_evo(binary_matrix):
     """ Removes evolutionarily distinct sequences
     
     Calculates a correlation matrix for the strains as they relate to each
     other, and then removes those that are significantly different
+
+    This is section S5
     """
     gamma = np.cov(binary_matrix.T)
     eigvals, vecs = np.linalg.eigh(gamma)
@@ -339,7 +340,7 @@ if __name__ == "__main__":
     print "First Pass Filtering"
     x = filter_and_generate_binary(seq_data)
 
-    distinct_strains = remove_distinct_evo(x)
+    distinct_strains = find_distinct_evo(x)
     seq_data2 = [strain for idx, strain in enumerate(seq_data) if idx in
                  distinct_strains]
 
