@@ -1,5 +1,4 @@
 import numpy as np
-import sys
 from sequence_tools import read_fasta
 from collections import Counter
 from scipy import stats
@@ -444,5 +443,12 @@ print "I did find   %3d that Dahirel et al didn't" % len(me_only)
 print "Did not find %3d that Dahirel et al did" % len(them_only)
 
 mpl.figure()
+
+imshow_with_boxes(corr_matrix_clean, secs)
+
+mpl.figure()
+
+nosec = set(range(len(best))).difference(secs_me)
+secs.append(list(nosec))
 
 imshow_with_boxes(corr_matrix_clean, secs)
